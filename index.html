@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./style.css">
+    <title>wavey things 2</title>
+</head>
+<body>
+    <div id="container"></div>
+<canvas id=c></canvas>
+<script type="module">
+  import * as THREE from 'https://threejs.org/build/three.module.js'
+  var camera
+  let scene, renderer
+  let isUserInteracting = false,
+      lon = 0, lat = 0,
+      phi = 0, theta = 0,
+      onPointerDownPointerX = 0,
+      onPointerDownPointerY = 0,
+      onPointerDownLon = 0,
+      onPointerDownLat = 0
+
+  const distance = 1e4-9e3
+
+  var func = navigator.userAgent.toLowerCase().indexOf('firefox') != -1 ? "onwheel" : "onmousewheel"
+  window[func]= e => {
+    let delta = camera.fov
+    delta += e.deltaY/25
+    camera.fov = Math.min(140, Math.max(10, delta))
+    camera.updateProjectionMatrix()
+    
+  }
+
+  var material, loadScene, texture, sceneLoaded = false, geometry
+
+  function init(url){
+    const container = document.getElementById( 'container' )
+    camera = new THREE.PerspectiveCamera( 100, 16/9, .05, 1e6)
+    
+    loadScene = () =>{
+      scene = new THREE.Scene()
+      geometry = new THREE.SphereGeometry( 1e4, 64, 240 )
+      geometry.scale( - 1, 1, 1 )
+      
+      texture = new THREE.CanvasTexture(c)
+      
+      /*
+      if(url.toLowerCase().indexOf('.mp4') != -1 ||
+         url.toLowerCase().indexOf('.webm') != -1){
+        const vid = document.createElement('video')
+        vid.muted = true
+        vid.loop = true
+        vid.crossOrigin = true
+        vid.src = url
+        vid.play()
+        texture = new THREE.VideoTexture( vid )
+      }else{
+        texture = new THREE.TextureLoader().load(url)
+        texture.wrapS = THREE.RepeatWrapping
+        texture.wrapT = THREE.RepeatWrapping
+        texture.repeat.set( 1, 1 )
+      }
+      */
+
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy()
+        texture.wrapS = THREE.RepeatWrapping
+        texture.wrapT = THREE.RepeatWrapping
+        texture.repeat.set( 1, 1 )
+      material = new THREE.MeshBasicMaterial( { map: texture } )
+      material.map.minFilter = THREE.LinearFilter
+      const mesh = new THREE.Mesh( geometry, material )
+      scene.add( mesh )
+      sceneLoaded = true
+    }
+    
+    renderer = new THREE.WebGLRenderer()
+    renderer.setSize( 1920, 1080 )
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setAnimationLoop( animate )
+    container.appendChild( renderer.domElement )
+    document.addEventListener( 'pointerdown', onPointerDown )
+    document.addEventListener( 'pointermove', onPointerMove )
+    document.addEventListener( 'pointerup', onPointerUp )
+    document.addEventListener( 'touchstart', onPointerDown )
+    document.addEventListener( 'touchmove', onPointerMove )
+    document.addEventListener( 'touchend', onPointerUp )
+    loadScene()
+  }
+
+  function onPointerDown( event ) {
+    isUserInteracting = true
+    onPointerDownPointerX = event.clientX
+    onPointerDownPointerY = event.clientY
+    onPointerDownLon = lon
+    onPointerDownLat = lat
+  }
+
+  function onPointerMove( event ) {
+    if ( isUserInteracting === true ) {
+      var mag = .01 + camera.fov/450
+      lon = ( onPointerDownPointerX - event.clientX ) * mag + onPointerDownLon
+      lat = ( onPointerDownPointerY - event.clientY ) * mag + onPointerDownLat
+    }
+  }
+
+  function onPointerUp() {
+    isUserInteracting = false
+  }
+
+  function animate() {
+    if(typeof showRender != 'undefined' && showRender){
+      if(!sceneLoaded) loadScene()
+      lat = Math.max( - 89.9, Math.min( 89.9, lat ) )
+      phi = ( 90 - lat )/180*Math.PI
+      theta = lon/180*Math.PI
+      camera.position.x = distance * Math.sin( phi ) * Math.cos( theta )
+      camera.position.y = distance * Math.cos( phi )
+      camera.position.z = distance * Math.sin( phi ) * Math.sin( theta )
+      camera.lookAt( 0, 0, 0 )
+      renderer.render( scene, camera )
+      material.map.needsUpdate = true
+    }else{
+      sceneLoaded = false
+    }
+  }
+
+  var url
+  var l = location.href.split('url=')
+  if(l.length>1){
+    url = l[1].split('&')[0]
+    init(url)
+  }else{
+    init('')
+  }
+</script>
+    <script src="./main.js"></script>
+</body>
+</html>
